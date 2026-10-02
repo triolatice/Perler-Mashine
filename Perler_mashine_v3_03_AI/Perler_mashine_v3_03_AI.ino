@@ -10,7 +10,7 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
-#include <ESP32Servo.h>
+//#include <ESP32Servo.h>
 #include <Wire.h>
 #include "Freenove_WS2812_Lib_for_ESP32.h"
 #include <Adafruit_GFX.h>
@@ -48,8 +48,8 @@ Freenove_ESP32_WS2812 strip(LED_COUNT, LED_PIN, LED_CHANNEL, TYPE_GRB);
 
 // ---- SERVO MOTOR ----
 #define PIN_Servo1 5
-Servo servo1;
-
+//Servo servo1;
+const int servoKanal = 0; // Koristimo LEDC kanal 0
 // ---- HARDWARE I2C (SH1106 DISPLAY) ----
 #define SDA_PIN 11 
 #define SCL_PIN 12 
@@ -376,9 +376,18 @@ void setup() {
     }
 
 // ---- SERVO INITIALIZATION MOVED HERE (AFTER SD CARD IS FULLY READY) ----
-  servo1.attach(PIN_Servo1);
-  servo1.write(servoZatvorenoKut);
+  //servo1.attach(PIN_Servo1);
+  //servo1.write(servoZatvorenoKut);
   // ------------------------------------------------------------------------
+    // ---- NOVI BEZOPASNI SERVO DRIVE (ZAMJENA ZA ATTACH) ----
+  ledcSetup(servoKanal, 50, 10);      // Kanal 0, 50 Hz (standard za servo), 10 bita rezolucija
+  ledcAttachPin(PIN_Servo1, servoKanal); // Poveži pin 5 s kanalom 0
+  
+  // Postavljanje u početni zatvoreni položaj (kut 10 stupnjeva = cca vrijednost 35 u 10-bitnom PWM-u)
+  int pocetniPuls = map(servoZatvorenoKut, 0, 180, 26, 128); 
+  ledcWrite(servoKanal, pocetniPuls);
+  // --------------------------------------------------------
+
 
     // Connect OneButton library events safely
     tasterEnkodera.attachClick(klikNaEnkoder);
@@ -460,8 +469,8 @@ void loop() {
       int trenutniKut = pozicijaEnkodera;
       if (trenutniKut < 0) { pozicijaEnkodera = 0; trenutniKut = 0; }
       if (trenutniKut > 180) { pozicijaEnkodera = 180; trenutniKut = 180; }
-      servo1.write(trenutniKut);
-      
+      //servo1.write(trenutniKut);
+      ledcWrite(servoKanal, map(trenutniKut, 0, 180, 26, 128));
       static int zadnjiKut = -1;
       if (trenutniKut != zadnjiKut || osvjeziEkran) {
         display.clearDisplay();
@@ -482,7 +491,8 @@ void loop() {
       int trenutniKut = pozicijaEnkodera;
       if (trenutniKut < 0) { pozicijaEnkodera = 0; trenutniKut = 0; }
       if (trenutniKut > 180) { pozicijaEnkodera = 180; trenutniKut = 180; }
-      servo1.write(trenutniKut);
+      //servo1.write(trenutniKut);
+      ledcWrite(servoKanal, map(trenutniKut, 0, 180, 26, 128));
       
       static int zadnjiKut = -1;
       if (trenutniKut != zadnjiKut || osvjeziEkran) {
@@ -590,9 +600,12 @@ void pozicionirajSteperNaBoju(int ciljniIndeks) {
 }
 
 void aktivirajServoDozatore() {
-    servo1.write(servoOtvorenoKut); 
-    delay(400); 
-    servo1.write(servoZatvorenoKut); 
+    int otvorenoPuls = map(servoOtvorenoKut, 0, 180, 26, 128);
+    int zatvorenoPuls = map(servoZatvorenoKut, 0, 180, 26, 128);
+
+    ledcWrite(servoKanal, otvorenoPuls); // Otvori dozator
+    delay(400);
+    ledcWrite(servoKanal, zatvorenoPuls); // Zatvori dozator
     delay(200);
 }
 
