@@ -347,8 +347,7 @@ void setup() {
     servoZatvorenoKut = preferences.getInt("servoZat", 10);
     preferences.end();
 
-    servo1.attach(PIN_Servo1); 
-    servo1.write(servoZatvorenoKut); 
+  
 
     // pinMode(miso, INPUT_PULLUP);
     SPI.begin(sck, miso, mosi, cs);
@@ -376,7 +375,10 @@ void setup() {
         Serial.println("UNKNOWN");
     }
 
-
+// ---- SERVO INITIALIZATION MOVED HERE (AFTER SD CARD IS FULLY READY) ----
+  servo1.attach(PIN_Servo1);
+  servo1.write(servoZatvorenoKut);
+  // ------------------------------------------------------------------------
 
     // Connect OneButton library events safely
     tasterEnkodera.attachClick(klikNaEnkoder);
