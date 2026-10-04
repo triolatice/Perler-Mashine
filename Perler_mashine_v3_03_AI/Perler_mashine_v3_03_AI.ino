@@ -1,16 +1,26 @@
 /*
+The Perler Machine is an assistant that helps artists work with HAMA fuse beads. 
+Hama beads are small, tubular plastic beads arranged on special pegboards to create various colorful mosaics, shapes, and images.
+
+*/
+/*
 ======================================================
-  Perler Machine v2.15 - 2/10/2026   
+  created 17.5. 2026
+  by Srecko Nagy
+  modified 4.10.2026.
+  
+
+
+  Perler Machine v3.04 - 4/10/2026   
   - English comments applied.
   - Dual-Profile Geometry (24 slots vs 8 slots).
   - Profile selection via ENC_PUSH (Encoder click) on startup.
-  - Reset menu profile immediately upon work completion.
+  - 
 ======================================================
 */
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
-//#include <ESP32Servo.h>
 #include <Wire.h>
 #include "Freenove_WS2812_Lib_for_ESP32.h"
 #include <Adafruit_GFX.h>
@@ -19,7 +29,7 @@
 #include <OneButton.h>
 
 // ---- DEBUG CONFIGURATION ----
-const bool DEBUG = true; 
+const bool DEBUG = false; 
 
 // ---- SPI / SD CARD PINS ----
 #define REASSIGN_PINS
@@ -37,7 +47,7 @@ const int cs = 17;
 
 // ---- RGB LED (WS2812) ----
 #define LED_PIN       10
-#define LED_COUNT     1   
+#define LED_COUNT     8   
 #define LED_CHANNEL   3   
 Freenove_ESP32_WS2812 strip(LED_COUNT, LED_PIN, LED_CHANNEL, TYPE_GRB);
 
@@ -48,8 +58,7 @@ Freenove_ESP32_WS2812 strip(LED_COUNT, LED_PIN, LED_CHANNEL, TYPE_GRB);
 
 // ---- SERVO MOTOR ----
 #define PIN_Servo1 5
-//Servo servo1;
-//const int servoKanal = 0; // Koristimo LEDC kanal 0
+
 // ---- HARDWARE I2C (SH1106 DISPLAY) ----
 #define SDA_PIN 11 
 #define SCL_PIN 12 
@@ -138,6 +147,7 @@ int trenutnaStavkaIzbornika = 0;
 int ukupnoStavkiIzbornika = 4; 
 bool imaSpremljenogNapretka = false;
 
+
 String stavkeIzbornika[] = {
   "1. STEPER OFFSET",
   "2. Servo START.",
@@ -145,6 +155,7 @@ String stavkeIzbornika[] = {
   "4. RUN",
   ""
 };
+
 
 bool osvjeziEkran = true;
 bool flagSlijedecaPerlica = false;
@@ -328,12 +339,12 @@ void setup() {
     if (digitalRead(ENC_PUSH) == HIGH) {
         koraciZaBoje = koraciProfil8; 
         maxDostupnihBoja = 8;
-        prikaziNaEkranu("PERLER MASHINE v3.03", "PROFIL: 8 Colors", "Read SD Card...");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 8 Colors", "Read SD Card...");
         digitalWrite(LED_RED, HIGH); delay(600); digitalWrite(LED_RED, LOW);
     } else {
         koraciZaBoje = koraciProfil24; 
         maxDostupnihBoja = 24;
-        prikaziNaEkranu("PERLER MASHINE v3.03", "PROFIL: 24 Colors", "Read SD...");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 24 Colors", "Read SD...");
         delay(300);
     }
 
@@ -356,7 +367,7 @@ void setup() {
         digitalWrite(LED_RED, HIGH);
         while (true);
     }
-    // test only
+  
 
      uint8_t cardType = SD.cardType();
         if(cardType == CARD_NONE){
@@ -375,18 +386,12 @@ void setup() {
         Serial.println("UNKNOWN");
     }
 
-// ---- SERVO INITIALIZATION MOVED HERE (AFTER SD CARD IS FULLY READY) ----
-  //servo1.attach(PIN_Servo1);
-  //servo1.write(servoZatvorenoKut);
-  // ------------------------------------------------------------------------
-     // ---- BEZOPASNI SERVO DRIVE ZA ESP32 CORE 3.X ----
-  // Jedna naredba postavlja Pin 5, frekvenciju 50Hz i rezoluciju 10 bita
   ledcAttach(PIN_Servo1, 50, 10); 
   
-  // Postavljanje u početni zatvoreni položaj
+ // Setting to the initial closed position
   int pocetniPuls = map(servoZatvorenoKut, 0, 180, 26, 128); 
-  ledcWrite(PIN_Servo1, pocetniPuls); // Pišemo izravno na PIN, a ne na kanal!
-  // --------------------------------------------------------
+  ledcWrite(PIN_Servo1, pocetniPuls); 
+  //------------------------------------------------
 
   
  
@@ -397,7 +402,19 @@ void setup() {
     tasterNazad.attachClick(klikNaNazad); 
 
     attachInterrupt(digitalPinToInterrupt(ENC_A), azurirajEnkoder, CHANGE);
+ // ---- NEW BOOT PAUSE: WAIT FOR USER CONFIRMATION ----
+    // Display wait prompt in the 4th line (Y=44)
+    display.setCursor(0, 55);
+    display.println("[PRESS ENC]");
+    display.display();
 
+    // Block the processor in a safe loop until ENC_PUSH hardware button is pressed
+    // Since ENC_PUSH is INPUT_PULLUP, it reads HIGH normally and LOW when pressed
+    while (digitalRead(ENC_PUSH) == HIGH) {
+        delay(10); // Small watchdog feeding delay
+    }
+    kratkiBip(); // Sound confirmation that we are proceeding
+    // ----------------------------------------------------
     // Scan for available project folders inside SD card root directory
     skenirajSDMape();
 
@@ -732,7 +749,8 @@ void upravljajRadomStroja() {
         else {
             // If there are accumulated gaps before this bead, process them now via Touch2
             if (praznihMjestaUNizu > 0) {
-                prikaziNaEkranu("Pick up the bead.  R:" + String(trenutniRed) + " C:" + String(trenutniStupac), "Skip Empty", String(praznihMjestaUNizu) + "Press [Touch 2]");
+           
+                prikaziNaEkranu("Pick up  R:" + String(trenutniRed) + " C:" + String(trenutniStupac), "Skip Empty x " + String(praznihMjestaUNizu) , "Press [Touch 2]");
                 prikaziSveLED(255, 0, 0); 
                 
                 Serial1.println("S" + String(praznihMjestaUNizu));
@@ -765,13 +783,19 @@ void upravljajRadomStroja() {
             if (pronadjena) {
                 if (DEBUG) Serial.printf("Color match: [%d] %s\n", trenutnaBoja.indeks, trenutnaBoja.naziv.c_str());
                 
-                prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+               if (DEBUG) prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+                prikaziNaEkranu(trenutnaBoja.naziv , "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+
+                prikaziSveLED(128, 0, 128); 
+                delay(50);
                 prikaziSveLED(0, 255, 0); 
                 kratkiBip();
 
                 pozicionirajSteperNaBoju(trenutnaBoja.indeks);
                 
-                prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+                 if (DEBUG)  prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+                             prikaziNaEkranu(trenutnaBoja.naziv , "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+
                 Serial1.println("R" + String(trenutniRed) + "C" + String(trenutniStupac));
 
                 flagSlijedecaPerlica = false;
@@ -785,7 +809,8 @@ void upravljajRadomStroja() {
                 if (trenutnoStanje != STANJE_RAD) return;
                 flagSlijedecaPerlica = false;
                 
-                prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+              //   if (DEBUG) prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+              //  prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
                 aktivirajServoDozatore();  
             } 
             else {
@@ -876,8 +901,8 @@ void prikaziNaEkranu(String linija1, String linija2, String linija3) {
     display.setTextSize(1);
     display.setTextColor(SH110X_WHITE); 
     display.setCursor(0, 4);   display.println(linija1);
-    display.setCursor(0, 24);  display.println(linija2);
-    display.setCursor(0, 44);  display.println(linija3);
+    display.setCursor(0, 20);  display.println(linija2);
+    display.setCursor(0, 40);  display.println(linija3);
     display.display();
 }
 
