@@ -7,7 +7,7 @@ Hama beads are small, tubular plastic beads arranged on special pegboards to cre
 ======================================================
   created 17.5. 2026
   by Srecko Nagy
-  modified 4.10.2026.
+  modified 5.10.2026.
   
 
 
@@ -47,7 +47,7 @@ const int cs = 17;
 
 // ---- RGB LED (WS2812) ----
 #define LED_PIN       10
-#define LED_COUNT     8   
+#define LED_COUNT     1   
 #define LED_CHANNEL   3   
 Freenove_ESP32_WS2812 strip(LED_COUNT, LED_PIN, LED_CHANNEL, TYPE_GRB);
 
@@ -147,20 +147,11 @@ int trenutnaStavkaIzbornika = 0;
 int ukupnoStavkiIzbornika = 4; 
 bool imaSpremljenogNapretka = false;
 
-/*
 String stavkeIzbornika[] = {
   "1. STEPER OFFSET",
   "2. Servo START.",
   "3. Servo END.",
   "4. RUN",
-  ""
-};
-*/
-// ---- CLEANED MENU STRUCTURE (Lines 122-128) ----
-String stavkeIzbornika[] = {
-  "1. STEPER OFFSET",
-  "2. RUN",
-  "",
   ""
 };
 
@@ -179,7 +170,8 @@ void klikNaNazad();
 
 void ucitajInformacijeOBoja();
 void izvrsiHomingKoracnogMotora();
-void prikaziNaEkranu(String linija1, String linija2, String linija3);
+//void prikaziNaEkranu(String linija1, String linija2, String linija3);
+void prikaziNaEkranu(String linija1, String linija2, String linija3, String linija4);
 void prikaziSveLED(uint8_t r, uint8_t g, uint8_t b);
 void kratkiBip();
 void dugiBip();
@@ -225,15 +217,11 @@ void klikNaEnkoder() {
     provjeriImaliNastavka();
     
     trenutnoStanje = STANJE_IZBORNIK;
-
-   // Budući da su i RUN i CONTINUE uvijek na indeksu 1, kursor postavljamo izravno na 1
-    pozicijaEnkodera = 1 * 2; 
-    trenutnaStavkaIzbornika = 1;
-
+    pozicijaEnkodera = 3 * 2; 
+    trenutnaStavkaIzbornika = 3;
     osvjeziEkran = true;
     kratkiBip();
   } 
-  /*
   else if (trenutnoStanje == STANJE_IZBORNIK) {
     if (trenutnaStavkaIzbornika == 0) {
       trenutnoStanje = STANJE_PODESAVANJE_OFFSET;
@@ -270,40 +258,6 @@ void klikNaEnkoder() {
     }
     osvjeziEkran = true;
   } 
-  */
-    else if (trenutnoStanje == STANJE_IZBORNIK) {
-    if (trenutnaStavkaIzbornika == 0) {
-      trenutnoStanje = STANJE_PODESAVANJE_OFFSET;
-      pozicijaEnkodera = homingOffsetKoraci;
-    } else if (trenutnaStavkaIzbornika == 1) {
-      // Index 1 is now RUN or CONTINUE WORK
-      pokreniSaPremotavanjem = imaSpremljenogNapretka; 
-      trenutnoStanje = STANJE_HOMING;
-    } else if (trenutnaStavkaIzbornika == 2) {
-      // Index 2 is now START NEW WORK (Reset progress)
-      String namespaceIme = "p_" + projekti[odabraniProjektIdx];
-      if (namespaceIme.length() > 15) namespaceIme = namespaceIme.substring(0, 15);
-      
-      infoMemorija.begin(namespaceIme.c_str(), false);
-      infoMemorija.clear();
-      infoMemorija.end();
-      
-      imaSpremljenogNapretka = false;
-      pokreniSaPremotavanjem = false;
-      
-      if (imagesFile) {
-          imagesFile.close();
-      }
-      trenutniRed = 1;
-      trenutniStupac = 1;
-      praznihMjestaUNizu = 0;
-      krajRedaDetektiran = false;
-      
-      trenutnoStanje = STANJE_HOMING;
-    }
-    osvjeziEkran = true;
-  }
-
   else if (trenutnoStanje == STANJE_PODESAVANJE_OFFSET) {
     homingOffsetKoraci = pozicijaEnkodera;
     preferences.begin("perler", false);
@@ -384,12 +338,12 @@ void setup() {
     if (digitalRead(ENC_PUSH) == HIGH) {
         koraciZaBoje = koraciProfil8; 
         maxDostupnihBoja = 8;
-        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 8 Colors", "Read SD Card...");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 8 Colors", "Read SD Card...", "");
         digitalWrite(LED_RED, HIGH); delay(600); digitalWrite(LED_RED, LOW);
     } else {
         koraciZaBoje = koraciProfil24; 
         maxDostupnihBoja = 24;
-        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 24 Colors", "Read SD...");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 24 Colors", "Read SD...", "");
         delay(300);
     }
 
@@ -408,11 +362,11 @@ void setup() {
     // pinMode(miso, INPUT_PULLUP);
     SPI.begin(sck, miso, mosi, cs);
     if (!SD.begin(cs, SPI, 4000000)) {
-        prikaziNaEkranu("SD ERROR", "Check the SD Card ","");
+        prikaziNaEkranu("SD ERROR", "Check the SD Card ","", "");
         digitalWrite(LED_RED, HIGH);
         while (true);
     }
-  
+    // test only
 
      uint8_t cardType = SD.cardType();
         if(cardType == CARD_NONE){
@@ -431,14 +385,12 @@ void setup() {
         Serial.println("UNKNOWN");
     }
 
+  // Pin 5, 50Hz and 10 bita
   ledcAttach(PIN_Servo1, 50, 10); 
   
- // Setting to the initial closed position
+  // Start Servo position
   int pocetniPuls = map(servoZatvorenoKut, 0, 180, 26, 128); 
   ledcWrite(PIN_Servo1, pocetniPuls); 
-  //------------------------------------------------
-
-  
  
     // Connect OneButton library events safely
     tasterEnkodera.attachClick(klikNaEnkoder);
@@ -448,8 +400,7 @@ void setup() {
 
     attachInterrupt(digitalPinToInterrupt(ENC_A), azurirajEnkoder, CHANGE);
  // ---- NEW BOOT PAUSE: WAIT FOR USER CONFIRMATION ----
-    // Display wait prompt in the 4th line (Y=44)
-    display.setCursor(0, 55);
+    display.setCursor(0, 48);
     display.println("[PRESS ENC]");
     display.display();
 
@@ -459,25 +410,19 @@ void setup() {
         delay(10); // Small watchdog feeding delay
     }
     kratkiBip(); // Sound confirmation that we are proceeding
-    // ----------------------------------------------------
-    // Scan for available project folders inside SD card root directory
+        // Scan for available project folders inside SD card root directory
     skenirajSDMape();
-
     kratkiBip();
     osvjeziEkran = true;
 }
-
-
-
 void loop() {
   tasterEnkodera.tick();
   tasterSlijedeca.tick();
   tasterPreskoci.tick();
   tasterNazad.tick(); 
-
   switch (trenutnoStanje) {
-    
-    case STANJE_IZBOR_PROJEKTA: {
+   
+       case STANJE_IZBOR_PROJEKTA: {
       long pozicija = pozicijaEnkodera / 2;
       if (pozicija != odabraniProjektIdx) {
         if (pozicija < 0) { pozicijaEnkodera = 0; pozicija = 0; }
@@ -576,14 +521,14 @@ void loop() {
     }
 
     case STANJE_HOMING: {
-      prikaziNaEkranu("HOMING", "Executing.....", "Please wait");
+      prikaziNaEkranu("HOMING", "Executing.....", "Please wait", "");
       izvrsiHomingKoracnogMotora();
       
       if (!imagesFile) {
           String imagePath = "/" + projekti[odabraniProjektIdx] + "/Images.csv";
           imagesFile = SD.open(imagePath);
           if (!imagesFile) {
-              prikaziNaEkranu("IMAGES ERROR",  "Images.csv", "missing");
+              prikaziNaEkranu("IMAGES ERROR",  "Images.csv", "missing", "");
               while (true);
           }
           
@@ -607,7 +552,6 @@ void loop() {
     }
   }
 }
-
 
 void izvrsiHomingKoracnogMotora() {
     digitalWrite(EN1_PIN, LOW); 
@@ -653,7 +597,7 @@ void pozicionirajSteperNaBoju(int ciljniIndeks) {
         razlika = -razlika; 
     }
 
-    digitalWrite(EN1_PIN, LOW);
+    //digitalWrite(EN1_PIN, LOW);
     for (int i = 0; i < razlika; i++) {
         digitalWrite(STEP1_PIN, HIGH); 
         delayMicroseconds(1000); //1500
@@ -667,23 +611,17 @@ void pozicionirajSteperNaBoju(int ciljniIndeks) {
 void aktivirajServoDozatore() {
     int otvorenoPuls = map(servoOtvorenoKut, 0, 180, 26, 128);
     int zatvorenoPuls = map(servoZatvorenoKut, 0, 180, 26, 128);
-
-    ledcWrite(PIN_Servo1, otvorenoPuls); // Otvori dozator (Pišemo na pin!)
+    ledcWrite(PIN_Servo1, otvorenoPuls); // Open)
     delay(400);
-    ledcWrite(PIN_Servo1, zatvorenoPuls); // Zatvori dozator
+    ledcWrite(PIN_Servo1, zatvorenoPuls); // Close
     delay(200);
 }
-
-
-
-
-
 
 void ucitajInformacijeOBoja() {
     String configPath = "/" + projekti[odabraniProjektIdx] + "/Information.csv";
     File configFile = SD.open(configPath);
     if (!configFile) {
-        prikaziNaEkranu("CONFIG ERROR", "Information.csv", "missing .");
+        prikaziNaEkranu("CONFIG ERROR", "Information.csv", "missing .", "");
         while (true);
     }
 
@@ -710,7 +648,6 @@ void ucitajInformacijeOBoja() {
 }
 
 // ---- CSV AUTOMATIC RESUME PROGRESS LOADER ----
-/*
 void provjeriImaliNastavka() {
     infoMemorija.begin("perler_data", true); 
     int spremljeniRed = infoMemorija.getInt("zadnjiRed", 1);
@@ -729,27 +666,6 @@ void provjeriImaliNastavka() {
         ukupnoStavkiIzbornika = 4;
     }
 }
-*/
-void provjeriImaliNastavka() {
-    String namespaceIme = "p_" + projekti[odabraniProjektIdx];
-    if (namespaceIme.length() > 15) namespaceIme = namespaceIme.substring(0, 15);
-
-    infoMemorija.begin(namespaceIme.c_str(), true); 
-    int spremljeniRed = infoMemorija.getInt("zadnjiRed", 1);
-    int spremljeniStupac = infoMemorija.getInt("zadnjiStupac", 1);
-    infoMemorija.end();
-
-    if (spremljeniRed > 1 || spremljeniStupac > 1) {
-        imaSpremljenogNapretka = true;
-        stavkeIzbornika[1] = "2. CONTINUE WORK"; 
-        stavkeIzbornika[2] = "3. START NEW WORK"; 
-        ukupnoStavkiIzbornika = 3;
-    } else {
-        imaSpremljenogNapretka = false;
-        stavkeIzbornika[1] = "2. RUN";
-        ukupnoStavkiIzbornika = 2;
-    }
-}
 
 void premotajNastavakSlaganja() {
     infoMemorija.begin("perler_data", true); 
@@ -757,7 +673,7 @@ void premotajNastavakSlaganja() {
     int metaStupac = infoMemorija.getInt("zadnjiStupac", 1);
     infoMemorija.end();
 
-    prikaziNaEkranu("RESUME WORK...", "Wait CSV info...", "R: " + String(metaRed) + " C: " + String(metaStupac));
+    prikaziNaEkranu("RESUME WORK...", "Wait CSV info...", "R: " + String(metaRed) + " C: " + String(metaStupac), "");
     
     trenutniRed = 1;
     trenutniStupac = 1;
@@ -816,16 +732,7 @@ void upravljajRadomStroja() {
         else {
             // If there are accumulated gaps before this bead, process them now via Touch2
             if (praznihMjestaUNizu > 0) {
-           
-                //prikaziNaEkranu("Pick up  R:" + String(trenutniRed) + " C:" + String(trenutniStupac), "Skip Empty x " + String(praznihMjestaUNizu) , "Press [Touch 2]");
-               // Prošireni zaslon u 4 reda za prazna mjesta
-            display.clearDisplay();
-            display.setCursor(0, 0);   display.println("SLAGANJE R:" + String(trenutniRed) + " S:" + String(trenutniStupac));
-            display.setCursor(0, 16);  display.println("Preskoci prazno:");
-            display.setCursor(0, 32);  display.println(String(praznihMjestaUNizu) + "x [Touch2]");
-            display.setCursor(0, 48);  display.println("PROJEKT: " + projekti[odabraniProjektIdx]); // 4. red
-            display.display();
-               
+                prikaziNaEkranu("Pick up   R:" + String(trenutniRed) + " C:" + String(trenutniStupac), "Skip "   + String(praznihMjestaUNizu)+ " Empty",  "Press [Touch 2]",  String(projekti[odabraniProjektIdx]));
                 prikaziSveLED(255, 0, 0); 
                 
                 Serial1.println("S" + String(praznihMjestaUNizu));
@@ -858,33 +765,15 @@ void upravljajRadomStroja() {
             if (pronadjena) {
                 if (DEBUG) Serial.printf("Color match: [%d] %s\n", trenutnaBoja.indeks, trenutnaBoja.naziv.c_str());
                 
-               if (DEBUG) prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
-                prikaziNaEkranu(trenutnaBoja.naziv , "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
-
+                //prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Positioning...", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac), "Project: " + String(projekti[odabraniProjektIdx]));
+                prikaziNaEkranu(trenutnaBoja.naziv , "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac), String(projekti[odabraniProjektIdx]));
                 prikaziSveLED(128, 0, 128); 
-                delay(50);
+                delay(150);
                 prikaziSveLED(0, 255, 0); 
                 kratkiBip();
-
                 pozicionirajSteperNaBoju(trenutnaBoja.indeks);
-                
-                 //if (DEBUG)  prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
-                  //           prikaziNaEkranu(trenutnaBoja.naziv , "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
-
-// ---- NOVI PROŠIRENI ZASLON U 4 REDA S IMENOM PROJEKTA ----
-            display.clearDisplay();
-            display.setTextSize(1);
-            display.setTextColor(SH110X_WHITE);
-            
-            display.setCursor(0, 0);   display.println(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]");
-            display.setCursor(0, 16);  display.println("Cekam [Touch1] prolaz");
-            display.setCursor(0, 32);  display.println("Red: " + String(trenutniRed) + "  Stupac: " + String(trenutniStupac));
-            
-            // 4. red: Ispisuje naziv aktivnog foldera (projekta) na dno ekrana
-            display.setCursor(0, 48);  display.println("PROJEKT: " + projekti[odabraniProjektIdx]);
-            display.display();
-            // ---------------------------------------------------------
-
+                 //prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac), "Project: " + String(projekti[odabraniProjektIdx]));
+                prikaziNaEkranu(trenutnaBoja.naziv , "[Touch 1] for next.", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac),  String(projekti[odabraniProjektIdx]));
                 Serial1.println("R" + String(trenutniRed) + "C" + String(trenutniStupac));
 
                 flagSlijedecaPerlica = false;
@@ -897,14 +786,12 @@ void upravljajRadomStroja() {
                 }
                 if (trenutnoStanje != STANJE_RAD) return;
                 flagSlijedecaPerlica = false;
-                
-              //   if (DEBUG) prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
-              //  prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac));
+                //prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac), "");
                 aktivirajServoDozatore();  
             } 
             else {
                 digitalWrite(LED_RED, HIGH); 
-                prikaziNaEkranu("UNKNOWN COLOR!", "Indeks mising: " + String(trazeniIndeks), "[Touch 2] to skip");
+                prikaziNaEkranu("UNKNOWN COLOR!", "Indeks mising: " + String(trazeniIndeks), "[Touch 2] to skip", "");
                 prikaziSveLED(255, 0, 0); 
                 dugiBip();
                 
@@ -947,7 +834,7 @@ void upravljajRadomStroja() {
     } else {
         // --- OPERATION COMPLETED IN FULL ---
         if (DEBUG) Serial.println("Job accomplished! Waiting for exit command.");
-        prikaziNaEkranu("COMPLETED!", "All beads arranged", "[BACK] to menu");
+        prikaziNaEkranu("COMPLETED!", "All beads arranged", "[BACK] to menu", "");
         prikaziSveLED(0, 0, 255); 
         
         digitalWrite(EN1_PIN, HIGH); 
@@ -985,13 +872,16 @@ void prikaziIzbornik() {
   display.display();
 }
 
-void prikaziNaEkranu(String linija1, String linija2, String linija3) {
+void prikaziNaEkranu(String linija1, String linija2, String linija3, String linija4) {
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SH110X_WHITE); 
     display.setCursor(0, 4);   display.println(linija1);
     display.setCursor(0, 20);  display.println(linija2);
-    display.setCursor(0, 40);  display.println(linija3);
+    display.setCursor(0, 34);  display.println(linija3);
+    display.setTextSize(2);
+    display.setCursor(0, 48);  display.println(linija4);
+    display.setTextSize(1);
     display.display();
 }
 
