@@ -15,7 +15,7 @@ Hama beads are small, tubular plastic beads arranged on special pegboards to cre
   - English comments applied.
   - Dual-Profile Geometry (24 slots vs 8 slots).
   - Profile selection via ENC_PUSH (Encoder click) on startup.
-  - 
+  - REPO
 ======================================================
 */
 #include "FS.h"

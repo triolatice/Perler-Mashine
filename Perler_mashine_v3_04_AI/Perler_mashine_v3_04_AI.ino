@@ -7,12 +7,11 @@ Hama beads are small, tubular plastic beads arranged on special pegboards to cre
 ======================================================
   created 17.5. 2026
   by Srecko Nagy
-  modified 5.10.2026.
+  modified 7.10.2026.
   
 
 
-  Perler Machine v3.04 - 4/10/2026   
-  - English comments applied.
+  Perler Machine v3.05 - 6/10/2026   
   - Dual-Profile Geometry (24 slots vs 8 slots).
   - Profile selection via ENC_PUSH (Encoder click) on startup.
   - 
@@ -21,7 +20,8 @@ Hama beads are small, tubular plastic beads arranged on special pegboards to cre
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
-#include <Wire.h>
+
+#include <Wire.h>       
 #include "Freenove_WS2812_Lib_for_ESP32.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
@@ -47,7 +47,7 @@ const int cs = 17;
 
 // ---- RGB LED (WS2812) ----
 #define LED_PIN       10
-#define LED_COUNT     1   
+#define LED_COUNT     8   
 #define LED_CHANNEL   3   
 Freenove_ESP32_WS2812 strip(LED_COUNT, LED_PIN, LED_CHANNEL, TYPE_GRB);
 
@@ -143,15 +143,16 @@ int homingOffsetKoraci = 300;
 int servoOtvorenoKut = 90;
 int servoZatvorenoKut = 10;
 
-int trenutnaStavkaIzbornika = 0;
-int ukupnoStavkiIzbornika = 4; 
 bool imaSpremljenogNapretka = false;
+// ---- CLEANED MENU VARIABLES  ----
+int trenutnaStavkaIzbornika = 0;
+int ukupnoStavkiIzbornika = 2; // (Offset i RUN)
 
 String stavkeIzbornika[] = {
   "1. STEPER OFFSET",
-  "2. Servo START.",
-  "3. Servo END.",
-  "4. RUN",
+  "2. RUN",
+  "",
+  "",
   ""
 };
 
@@ -170,7 +171,6 @@ void klikNaNazad();
 
 void ucitajInformacijeOBoja();
 void izvrsiHomingKoracnogMotora();
-//void prikaziNaEkranu(String linija1, String linija2, String linija3);
 void prikaziNaEkranu(String linija1, String linija2, String linija3, String linija4);
 void prikaziSveLED(uint8_t r, uint8_t g, uint8_t b);
 void kratkiBip();
@@ -192,9 +192,6 @@ void azurirajEnkoder() {
         pozicijaEnkodera = pozicijaEnkodera + 1;
     }
 }
-
-
-
 void  klikSlijedeca() {
   if (trenutnoStanje == STANJE_RAD) {
     flagSlijedecaPerlica = true;
@@ -207,7 +204,6 @@ void  klikPreskoci() {
   }
 }
 
-
 // ---- ROTARY ENCODER CONFIRM CLICK HUB ----
 void klikNaEnkoder() {
   if (trenutnoStanje == STANJE_IZBOR_PROJEKTA) {
@@ -217,8 +213,8 @@ void klikNaEnkoder() {
     provjeriImaliNastavka();
     
     trenutnoStanje = STANJE_IZBORNIK;
-    pozicijaEnkodera = 3 * 2; 
-    trenutnaStavkaIzbornika = 3;
+    pozicijaEnkodera = 1 * 2; //  = 3 * 2;
+    trenutnaStavkaIzbornika = 1;  // =3 
     osvjeziEkran = true;
     kratkiBip();
   } 
@@ -226,16 +222,20 @@ void klikNaEnkoder() {
     if (trenutnaStavkaIzbornika == 0) {
       trenutnoStanje = STANJE_PODESAVANJE_OFFSET;
       pozicijaEnkodera = homingOffsetKoraci;
+
+/*
     } else if (trenutnaStavkaIzbornika == 1) {
       trenutnoStanje = STANJE_PODESAVANJE_SERVA_OTV;
       pozicijaEnkodera = servoOtvorenoKut;
     } else if (trenutnaStavkaIzbornika == 2) {
       trenutnoStanje = STANJE_PODESAVANJE_SERVA_ZAT;
       pozicijaEnkodera = servoZatvorenoKut;
-    } else if (trenutnaStavkaIzbornika == 3) {
+*/
+
+    } else if (trenutnaStavkaIzbornika == 1) { //  3
       pokreniSaPremotavanjem = imaSpremljenogNapretka; 
       trenutnoStanje = STANJE_HOMING;
-    } else if (trenutnaStavkaIzbornika == 4) {
+    } else if (trenutnaStavkaIzbornika == 2) { //  4
       String namespaceIme = "p_" + projekti[odabraniProjektIdx];
       if (namespaceIme.length() > 15) namespaceIme = namespaceIme.substring(0, 15);
       
@@ -333,17 +333,22 @@ void setup() {
     display.begin(0x3C, true);
     display.setRotation(0); 
     display.clearDisplay();
+     // Otvaramo globalne preferences i čitamo doživotni broj perlica (ako ne postoji, vraća 0)
+    preferences.begin("perler", true);
+    long totalnePerlice = preferences.getLong("totalBeads", 0);
+    preferences.end();
     
+
     // ---- PROFILE SELECTION AT STARTUP (ENC_PUSH) ----
     if (digitalRead(ENC_PUSH) == HIGH) {
         koraciZaBoje = koraciProfil8; 
         maxDostupnihBoja = 8;
-        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 8 Colors", "Read SD Card...", "");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 8 Colors", "TOTAL BEADS: "+ String(totalnePerlice), "");
         digitalWrite(LED_RED, HIGH); delay(600); digitalWrite(LED_RED, LOW);
     } else {
         koraciZaBoje = koraciProfil24; 
         maxDostupnihBoja = 24;
-        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 24 Colors", "Read SD...", "");
+        prikaziNaEkranu("PERLER MASHINE v3.04", "PROFIL: 24 Colors", "TOTAL BEADS: "+ String(totalnePerlice), "");
         delay(300);
     }
 
@@ -366,8 +371,7 @@ void setup() {
         digitalWrite(LED_RED, HIGH);
         while (true);
     }
-    // test only
-
+    
      uint8_t cardType = SD.cardType();
         if(cardType == CARD_NONE){
      if (DEBUG)   Serial.println("No SD card attached");
@@ -403,6 +407,12 @@ void setup() {
     display.setCursor(0, 48);
     display.println("[PRESS ENC]");
     display.display();
+
+
+   
+
+    // Display total beads in the 3rd line and wait prompt in the 4th line
+
 
     // Block the processor in a safe loop until ENC_PUSH hardware button is pressed
     // Since ENC_PUSH is INPUT_PULLUP, it reads HIGH normally and LOW when pressed
@@ -502,7 +512,6 @@ void loop() {
       if (trenutniKut > 180) { pozicijaEnkodera = 180; trenutniKut = 180; }
       //servo1.write(trenutniKut);
      ledcWrite(PIN_Servo1, map(trenutniKut, 0, 180, 26, 128));
-
       
       static int zadnjiKut = -1;
       if (trenutniKut != zadnjiKut || osvjeziEkran) {
@@ -569,6 +578,7 @@ void izvrsiHomingKoracnogMotora() {
         digitalWrite(STEP1_PIN, LOW);  delayMicroseconds(800);
     }
     trenutnaPozicijaStepera = 0;
+    digitalWrite(EN1_PIN, HIGH); 
     if (DEBUG) Serial.println("Hardware homing over IR1 accomplished.");
 }
 
@@ -584,9 +594,9 @@ void pozicionirajSteperNaBoju(int ciljniIndeks) {
         razlika += TOTAL_STEPS_PUNI_KRUG; 
     }
 
-    // Serial1.print("Idx: ");          Serial1.print(ciljniIndeks);
-    // Serial1.print(" | Step Target: "); Serial1.print(ciljnaPozicija);
-    // Serial1.print(" | Real Diff: ");  Serial1.println(razlika);
+    //Serial1.print("Idx: ");          Serial1.print(ciljniIndeks);
+    //Serial1.print(" | Step Target: "); Serial1.print(ciljnaPozicija);
+    //Serial1.print(" | Real Diff: ");  Serial1.println(razlika);
 
     if (razlika == 0) return;
 
@@ -597,16 +607,49 @@ void pozicionirajSteperNaBoju(int ciljniIndeks) {
         razlika = -razlika; 
     }
 
-    //digitalWrite(EN1_PIN, LOW);
-    for (int i = 0; i < razlika; i++) {
-        digitalWrite(STEP1_PIN, HIGH); 
-        delayMicroseconds(1000); //1500
-        digitalWrite(STEP1_PIN, LOW);  
-        delayMicroseconds(1000);  // 1500 
+    // Steper ON
+    digitalWrite(EN1_PIN, LOW);
+    delay(50); 
+
+    // ---- MATHEMATICS FOR DYNAMIC ACCELERATION AND DECELERATION RAMPS ----
+    int pocetnaPauza = 3000;  // We lowered the start to 3000 µs for a smooth and powerful takeoff.
+    int minimalnaPauza = 1000; // Maximum speed 1000 us
+    int korakUbrzanja = 100;   // How much do we descend per step (ramp slope)
+
+    //We calculate the ramp length (how many steps the acceleration/deceleration takes).
+    int duljinaRampe = (pocetnaPauza - minimalnaPauza) / korakUbrzanja; 
+
+    // If the total difference is too small (e.g., just a few steps), the ramp is automatically shortened to half the distance.
+    if (razlika < duljinaRampe * 2) {
+        duljinaRampe = razlika / 2;
     }
+
+    // Executing the ramp step
+    for (int i = 0; i < razlika; i++) {
+        int trenutnaPauza = minimalnaPauza;
+
+        // 1. ACCELERATION PHASE (At the beginning of movement)
+        if (i < duljinaRampe) {
+            trenutnaPauza = pocetnaPauza - (i * korakUbrzanja);
+        }
+        // 2.DECELERATION PHASE (At the very end of the movement)
+        else if (i >= (razlika - duljinaRampe)) {
+            int preostaloKoraka = razlika - 1 - i;
+            trenutnaPauza = pocetnaPauza - (preostaloKoraka * korakUbrzanja);
+        }
+        // 3. MAXIMUM SPEED PHASE (In the middle of the movement, the pause remains minimal)
+
+        digitalWrite(STEP1_PIN, HIGH); 
+        delayMicroseconds(trenutnaPauza); 
+        digitalWrite(STEP1_PIN, LOW);  
+        delayMicroseconds(trenutnaPauza);  
+    }
+    // Steper OFF
+    digitalWrite(EN1_PIN, HIGH); 
     
     trenutnaPozicijaStepera = ciljnaPozicija;
 }
+
 
 void aktivirajServoDozatore() {
     int otvorenoPuls = map(servoOtvorenoKut, 0, 180, 26, 128);
@@ -649,32 +692,37 @@ void ucitajInformacijeOBoja() {
 
 // ---- CSV AUTOMATIC RESUME PROGRESS LOADER ----
 void provjeriImaliNastavka() {
-    infoMemorija.begin("perler_data", true); 
+    // Generiranje točnog dinamičkog imena ladice iz naziva projekta
+    String namespaceIme = "p_" + projekti[odabraniProjektIdx];
+    if (namespaceIme.length() > 15) namespaceIme = namespaceIme.substring(0, 15);
+
+    infoMemorija.begin(namespaceIme.c_str(), true); // Čitanje iz točne ladice
     int spremljeniRed = infoMemorija.getInt("zadnjiRed", 1);
     int spremljeniStupac = infoMemorija.getInt("zadnjiStupac", 1);
     infoMemorija.end();
 
-    // FIXED: Corrected matrix array boundaries for menu initialization
     if (spremljeniRed > 1 || spremljeniStupac > 1) {
         imaSpremljenogNapretka = true;
-        stavkeIzbornika[3] = "4. CONTINUE WORK"; 
-        stavkeIzbornika[4] = "5. START NEW WORK"; 
-        ukupnoStavkiIzbornika = 5;
+        stavkeIzbornika[1] = "2. CONTINUE WORK";
+        stavkeIzbornika[2] = "3. START NEW WORK";
+        ukupnoStavkiIzbornika = 3; // Izbornik se širi na 3 stavke
     } else {
         imaSpremljenogNapretka = false;
-        stavkeIzbornika[3] = "4. RUN";
-        ukupnoStavkiIzbornika = 4;
+        stavkeIzbornika[1] = "2. RUN";
+        stavkeIzbornika[2] = "";
+        ukupnoStavkiIzbornika = 2; // Izbornik se skuplja na 2 stavke
     }
 }
 
+
 void premotajNastavakSlaganja() {
-    infoMemorija.begin("perler_data", true); 
+    String imeLadice = "p_" + projekti[odabraniProjektIdx];
+    if (imeLadice.length() > 15) imeLadice = imeLadice.substring(0, 15);
+     infoMemorija.begin(imeLadice.c_str(), false);
     int metaRed = infoMemorija.getInt("zadnjiRed", 1);
     int metaStupac = infoMemorija.getInt("zadnjiStupac", 1);
     infoMemorija.end();
-
     prikaziNaEkranu("RESUME WORK...", "Wait CSV info...", "R: " + String(metaRed) + " C: " + String(metaStupac), "");
-    
     trenutniRed = 1;
     trenutniStupac = 1;
     krajRedaDetektiran = false;
@@ -736,12 +784,11 @@ void upravljajRadomStroja() {
                 prikaziSveLED(255, 0, 0); 
                 
                 Serial1.println("S" + String(praznihMjestaUNizu));
-
                 flagPreskociPerlicu = false;
                 while (!flagPreskociPerlicu && trenutnoStanje == STANJE_RAD) {
-                    tasterPreskoci.tick();
-                    tasterNazad.tick(); 
-                    delay(10);
+                tasterPreskoci.tick();
+                tasterNazad.tick(); 
+                delay(10);
                 }
                 if (trenutnoStanje != STANJE_RAD) return;
                 flagPreskociPerlicu = false;
@@ -788,6 +835,14 @@ void upravljajRadomStroja() {
                 flagSlijedecaPerlica = false;
                 //prikaziNaEkranu(trenutnaBoja.naziv + " [" + String(trazeniIndeks) + "]", "Dropping the bead", "Row: " + String(trenutniRed) + "  Column: " + String(trenutniStupac), "");
                 aktivirajServoDozatore();  
+            // NEW: Permanent addition of the bead to memory after a successful drop 
+            preferences.begin("perler", false);
+            long trenutniTotal = preferences.getLong("totalBeads", 0);
+            preferences.putLong("totalBeads", trenutniTotal + 1);
+            preferences.end();
+
+
+
             } 
             else {
                 digitalWrite(LED_RED, HIGH); 
@@ -806,7 +861,6 @@ void upravljajRadomStroja() {
                 
                 digitalWrite(LED_RED, LOW);
             }
-
             // Increment column only after a real bead (valid or invalid) has been processed
             trenutniStupac++; 
         }
@@ -817,15 +871,22 @@ void upravljajRadomStroja() {
             trenutniRed++;
             trenutniStupac = 1; 
             praznihMjestaUNizu = 0; // CRITICAL FIX: Erase any carryover gaps immediately!
-            
-            infoMemorija.begin("perler_data", false);
+                        
+          // 1. Let's create a temporary String.
+           String imeLadice = "p_" + projekti[odabraniProjektIdx];
+          // 2. Ensure it does not exceed 15 characters (ESP32 hardware limitation)
+          if (imeLadice.length() > 15) imeLadice = imeLadice.substring(0, 15);
+          // 3. Initialize the memory, adding .c_str() for correct data type conversion.
+            infoMemorija.begin(imeLadice.c_str(), false);
             infoMemorija.putInt("zadnjiRed", trenutniRed);
             infoMemorija.putInt("zadnjiStupac", trenutniStupac);
             infoMemorija.end();
             dugiBip();
         } else {
-            // Standard progressive saving within the same line
-            infoMemorija.begin("perler_data", false);
+                     
+            String imeLadice = "p_" + projekti[odabraniProjektIdx];
+            if (imeLadice.length() > 15) imeLadice = imeLadice.substring(0, 15);
+            infoMemorija.begin(imeLadice.c_str(), false);
             infoMemorija.putInt("zadnjiRed", trenutniRed);
             infoMemorija.putInt("zadnjiStupac", trenutniStupac);
             infoMemorija.end();
@@ -838,18 +899,18 @@ void upravljajRadomStroja() {
         prikaziSveLED(0, 0, 255); 
         
         digitalWrite(EN1_PIN, HIGH); 
+       String imeLadice = "p_" + projekti[odabraniProjektIdx];
+       if (imeLadice.length() > 15) imeLadice = imeLadice.substring(0, 15);
+        infoMemorija.begin(imeLadice.c_str(), false);
         
-        infoMemorija.begin("perler_data", false);
         infoMemorija.clear();
         infoMemorija.end();
-        
         // FIXED: Instantly refresh menu profile boundaries upon completion
         provjeriImaliNastavka();
         
         imagesFile.close(); 
         uartPozdravPoslan = false; 
-        
-        while (trenutnoStanje == STANJE_RAD) {
+            while (trenutnoStanje == STANJE_RAD) {
             tasterNazad.tick();
             tasterEnkodera.tick();
             delay(10);
